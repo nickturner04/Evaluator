@@ -41,6 +41,7 @@ typedef enum NodeType{
     EMPTY
 }NodeType;
 
+
 NodeType getTypeFromSymbol(char symbol){
     switch (symbol)
     {
@@ -207,6 +208,10 @@ void printQueue(OutputQueue* this){
 void enqueue(OutputQueue* this, Node node){
     this->tail++;
     this->queue[this->tail] = node;
+}
+void requeue(OutputQueue* this, Node node){
+    this->head--;
+    this->queue[this->head] = node;
 }
 
 void eqOperator(OutputQueue* this, char operator){
@@ -400,11 +405,21 @@ char* Strip(char expression[]){
     int strippedlength = expressionlength;
     for (size_t i = 0; i < strlen(expression); i++)
     {
+        if (expression[i] == '\n' || expression[i] =='\0')
+        {
+            strippedlength = i;
+            expression[i] = '\0';
+            break;
+        }
+        
+        
+    }
+        for (size_t i = 0; i < strlen(expression); i++)
+    {
         if (expression[i] == ' ')
         {
             strippedlength--;
         }
-        
     }
     char* strippedexpression = malloc(strippedlength + 1);
     strippedexpression[strippedlength] = '\0';
@@ -457,23 +472,27 @@ OutputQueue* infixToPostfix(OutputQueue* queueInfix){
                 {
                     nsPush(stackOperators, getSymbolFromType(node.type));
                 }
-                
             }
             else
             {
                 nsPush(stackOperators, getSymbolFromType(node.type));
             }
-            
-            
-            
+
         }
+        //printf("\n Queue: ");
+        //printQueue(queueOutput);
+        //printf("\n Stack: ");
+        //printStack(stackOperators);
     }
     while (stackOperators->head > -1)
     {
         enqueue(queueOutput,nsPop(stackOperators));
     }
 
-    int finalLength;
+    //printf("\n Output Queue: ");
+    //printQueue(queueOutput);
+
+    int finalLength = queueOutput->length;
 
     for (size_t i = 0; i < queueOutput->length; i++)
     {
@@ -533,9 +552,12 @@ Node* postfixToTree(OutputQueue* queuePostfix){
 double evaluatePostfix(OutputQueue* queuePostfix, double x){
     Node operand1;
     Node operand2;
+    Node operator;
+    operator.left = &operand1;
+    operator.right = &operand2;
     Node result;
-    operand1.type = EMPTY;
-    operand2.type = EMPTY;
+    result.type = NUMBER;
+    NodeStack* stack = createNodeStack(queuePostfix->length);
 
     for (size_t i = 0; i < queuePostfix->length; i++)
     {
@@ -547,36 +569,28 @@ double evaluatePostfix(OutputQueue* queuePostfix, double x){
     }
     for (size_t i = 0; i < queuePostfix->length; i++)
     {
-        printf("\n");
-        printQueue(queuePostfix);
-        printf("\n");
-        if (typeIsOperator(queuePostfix->queue[i].type))
+        //Node node = queuePostfix->queue[i];
+        if (queuePostfix->queue[i].type == NUMBER)
         {
-            Node operator;
-            operator.type = queuePostfix->queue[i].type;
+            Push(stack,queuePostfix->queue[i]);
+            printf("\n");
+            printStack(stack);
+        }
+        else if (typeIsOperator(queuePostfix->queue[i].type))
+        {
+            operator = queuePostfix->queue[i];
+            operand2 = nsPop(stack);
+            operand1 = nsPop(stack);
             operator.left = &operand1;
             operator.right = &operand2;
-            Node resultNode;
-            resultNode.type = NUMBER;
-            resultNode.value = Evaluate(&operator,&x);
-            queuePostfix->queue[i] = resultNode;
-            result = resultNode;
-            operand1.type = EMPTY;
-            operand2.type = EMPTY;
-            i--;
+            double res = Evaluate(&operator,&x);
+            printf("\n");
+            printf("%f",res);
+            result.value = res;
+            Push(stack,result);
         }
-        else{
-            if (operand1.type == EMPTY)
-            {
-                operand1 = queuePostfix->queue[i];
-            }
-            else{
-                operand2 = queuePostfix->queue[i];
-            }
-            
-        }
-        
     }
+    
     
     return result.value;
 }
@@ -584,18 +598,25 @@ double evaluatePostfix(OutputQueue* queuePostfix, double x){
 double evaluateExpression(char* expression,double x){
     char* stripped = Strip(expression);
     OutputQueue* infixQueue = createInfixQueue(stripped);
+    printQueue(infixQueue);
     free(stripped);
     OutputQueue* postfixQueue = infixToPostfix(infixQueue);
+    printQueue(postfixQueue);
     free(infixQueue->queue);
     free(infixQueue);
-    double output = evaluatePostfix(postfixQueue,x);
+    double output = evaluatePostfix(postfixQueue,1);
     free(postfixQueue->queue);
     free(postfixQueue);
     return output;
 }
 
 int main(void){
-    char expression[] = "(2 / 2) * 5 + 2 - x";
+    char expression[200];
+    printf("Enter expression to evaluate: ");
+    fgets(expression,sizeof(expression) - 1,stdin);
+    double result = evaluateExpression(expression,1);
+    printf("\n Result of expression: %f",result);
+    printf("\n");
     /*
     char* stripped = Strip(expression);
     printf("%s", stripped);
@@ -614,9 +635,5 @@ int main(void){
     double x = 1;
     double output = evaluatePostfix(queuePostfix,x);
     */
-    double output = evaluateExpression(expression,1.0);
     return 0;
 }
-//Bugs
-//Shunting yard algorithm assumes all operators are right associative
-//Function that turns postfix to expression tree is not functional
